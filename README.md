@@ -1,2 +1,2 @@
-# cvode
-A subset of safe CVODE bindings for Rust.
+# sundials
+A subset of safe Sundials bindings for Rust.
