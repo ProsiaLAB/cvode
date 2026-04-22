@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-sundials-sys = "0.6.2"
+sundials-sys = { path = "../sundials-sys" }

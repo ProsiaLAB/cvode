@@ -1,0 +1,69 @@
+[package]
+name = "sundials-sys"
+version = "0.7.0"
+authors = [
+    "Jason Dark <email@jkdark.com>",
+    "Arthur Carcano <arthur.carcano@gmail.fr>",
+    "Christophe Troestler <christophe.troestler@umons.ac.be>",
+    "S. Maitrey <km.maitrey@gmail.com>",
+]
+edition = "2024"
+links = "sundials"
+
+description = "Bindings to the SUNDIALS suite of Nonlinear and DAE Solvers"
+categories = ["external-ffi-bindings", "science"]
+repository = "https://github.com/Chris00/sundials-sys"
+license = "BSD-3-Clause"
+readme = "README.md"
+keywords = ["ode", "numerics", "ffi", "math", "simulation"]
+exclude = [
+    "**/*.pdf",
+    "vendor/benchmarks",
+    "vendor/scripts",
+    "vendor/doc",
+    "vendor/docker",
+    "vendor/examples",
+    "vendor/test",
+]
+
+[build-dependencies]
+bindgen = "0.72.1"
+cmake = "0.1.58"
+pkg-config = { version = "0.3.33", optional = true }
+
+[target.'cfg(target_env = "msvc")'.build-dependencies]
+vcpkg = "0.2.15"
+
+[features]
+default = ["arkode", "cvode", "ida", "kinsol"]
+static_libraries = []
+build_libraries = []
+arkode = []
+cvode = []
+cvodes = []
+ida = []
+idas = []
+kinsol = []
+# Feature `klu` requires suitesparse (see README).
+klu = ["suitesparse_sys"]
+nvecopenmp = []
+nvecpthreads = []
+
+[dependencies]
+suitesparse_sys = { version = "0.1.4", optional = true }
+
+[package.metadata.docs.rs]
+
+features = [
+    "static_libraries",
+    "build_libraries",
+    "arkode",
+    "cvode",
+    "cvodes",
+    "ida",
+    "idas",
+    "kinsol",
+    "klu",
+    "nvecopenmp",
+    "nvecpthreads",
+]
