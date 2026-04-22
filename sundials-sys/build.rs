@@ -338,9 +338,11 @@ fn main() {
         "ida",
         "idas",
         "kinsol",
-        "nvecopenmp",
         "nvecpthreads"
     );
+    if use_openmp {
+        lib_names.push("nvecopenmp");
+    }
 
     for lib_name in &lib_names {
         println!("cargo:rustc-link-lib={library_type}=sundials_{lib_name}");
