@@ -4,7 +4,9 @@
             "name": "Mac",
             "includePath": [
                 "${default}",
-                "${workspaceFolder}/sundials-sys/vendor/sundials/include"
+                "${workspaceFolder}/sundials-sys/vendor/sundials/include/**",
+                "${workspaceFolder}/target/debug/build/sundials-sys-*/out/include",
+                "/usr/local/include/suitesparse"
             ],
             "defines": [],
             "compilerPath": "/opt/homebrew/opt/llvm/bin/clang",

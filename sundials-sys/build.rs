@@ -75,12 +75,14 @@ struct Library {
 
 /// Build the Sundials code vendor with sundials-sys.
 fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
+    // helper: feature → ON/OFF
     macro_rules! feature {
         ($s:tt) => {
             if cfg!(feature = $s) { "ON" } else { "OFF" }
         };
     }
 
+    // static vs shared
     let static_libraries = feature!("static_libraries");
     let (shared_libraries, library_type) = match static_libraries {
         "ON" => ("OFF", "static"),
@@ -88,24 +90,46 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
         _ => unreachable!(),
     };
 
-    let mut config = cmake::Config::new("vendor");
+    // detect platform + feature flags
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let openmp_enabled = std::env::var("CARGO_FEATURE_NVECOPENMP").is_ok();
+
+    // OpenMP logic
+    let openmp = if openmp_enabled && target_os != "macos" {
+        "ON"
+    } else {
+        "OFF"
+    };
+
+    // optional: fail loudly if user explicitly asked for OpenMP on macOS
+    if openmp_enabled && target_os == "macos" {
+        println!("cargo:warning=OpenMP requested but not available on macOS, disabling.");
+    }
+
+    let mut config = cmake::Config::new("vendor/sundials");
+
     config
-        .define("CMAKE_INSTALL_BINDIR", "lib") // v7.1.0
-        .define("CMAKE_INSTALL_LIBDIR", "lib") // ≤ v7.0.0
-        .define("BUILD_STATIC_LIBS", static_libraries)
+        // install dirs
+        .define("CMAKE_INSTALL_BINDIR", "lib")
+        .define("CMAKE_INSTALL_LIBDIR", "lib")
+        // library type
         .define("BUILD_SHARED_LIBS", shared_libraries)
+        // core toggles
         .define("BUILD_TESTING", "OFF")
-        .define("EXAMPLES_INSTALL", "OFF")
-        .define("EXAMPLES_ENABLE_C", "OFF")
-        .define("BUILD_ARKODE", feature!("arkode"))
-        .define("BUILD_CVODE", feature!("cvode"))
-        .define("BUILD_CVODES", feature!("cvodes"))
-        .define("BUILD_IDA", feature!("ida"))
-        .define("BUILD_IDAS", feature!("idas"))
-        .define("BUILD_KINSOL", feature!("kinsol"))
-        .define("ENABLE_KLU", feature!("klu"))
-        .define("OPENMP_ENABLE", feature!("nvecopenmp"))
-        .define("PTHREAD_ENABLE", feature!("nvecpthreads"));
+        .define("SUNDIALS_ENABLE_EXAMPLES", "OFF")
+        // modules (modern flags)
+        .define("SUNDIALS_ENABLE_ARKODE", feature!("arkode"))
+        .define("SUNDIALS_ENABLE_CVODE", feature!("cvode"))
+        .define("SUNDIALS_ENABLE_CVODES", feature!("cvodes"))
+        .define("SUNDIALS_ENABLE_IDA", feature!("ida"))
+        .define("SUNDIALS_ENABLE_IDAS", feature!("idas"))
+        .define("SUNDIALS_ENABLE_KINSOL", feature!("kinsol"))
+        // TPLs
+        .define("SUNDIALS_ENABLE_KLU", feature!("klu"))
+        .define("SUNDIALS_ENABLE_PTHREAD", feature!("nvecpthreads"))
+        .define("SUNDIALS_ENABLE_OPENMP", openmp);
+
+    // optional KLU paths
     if let Some(inc) = &klu.inc {
         config.define("KLU_INCLUDE_DIR", inc);
     }
@@ -113,10 +137,13 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
         config.define("KLU_LIBRARY_DIR", lib);
     }
 
+    // build
     let dst = config.build();
+
     let dst_disp = dst.display();
     let lib_loc = Some(format!("{dst_disp}/lib"));
     let inc_dir = Some(format!("{dst_disp}/include"));
+
     (
         Library {
             inc: inc_dir,
@@ -126,7 +153,10 @@ fn build_vendor_sundials(klu: &Library) -> (Library, &'static str) {
     )
 }
 
-fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenError> {
+fn generate_bindings(
+    inc_dirs: &[Option<String>],
+    use_openmp: bool,
+) -> Result<Bindings, BindgenError> {
     macro_rules! define {
         ($a:tt, $b:tt) => {
             format!(
@@ -136,6 +166,8 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
             )
         };
     }
+
+    let use_openmp_val = i32::from(use_openmp);
 
     let mut builder = bindgen::Builder::default().header("wrapper.h");
     for dir in inc_dirs.iter().flatten() {
@@ -150,7 +182,7 @@ fn generate_bindings(inc_dirs: &[Option<String>]) -> Result<Bindings, BindgenErr
             define!("idas", IDAS),
             define!("kinsol", KINSOL),
             define!("klu", KLU),
-            define!("nvecopenmp", OPENMP),
+            format!("-DUSE_OPENMP={use_openmp_val}"),
             define!("nvecpthreads", PTHREADS),
         ])
         .parse_callbacks(Box::new(ParseSignedConstants))
@@ -224,10 +256,13 @@ fn main() {
 
     // Second, we use bindgen to generate the Rust types
 
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let use_openmp = cfg!(feature = "nvecopenmp") && target_os != "macos";
+
     let bindings_rs = PathBuf::from(env::var("OUT_DIR").unwrap()).join("bindings.rs");
     let mut build_vendor = true;
     let mut sundials_version_major = 0;
-    if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+    if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()], use_openmp) {
         bindings
             .write_to_file(&bindings_rs)
             .expect("Couldn't write file bindings.rs!");
@@ -245,7 +280,7 @@ fn main() {
     }
     if build_vendor {
         (sundials, library_type) = build_vendor_sundials(&klu);
-        if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()]) {
+        if let Ok(bindings) = generate_bindings(&[sundials.inc, klu.inc.clone()], use_openmp) {
             bindings
                 .write_to_file(&bindings_rs)
                 .expect("Couldn't write file bindings.rs!");
@@ -259,7 +294,11 @@ fn main() {
         "cargo::rustc-check-cfg=cfg(sundials_version_major, \
         values(\"6\", \"7\"))"
     );
+    println!("cargo::rustc-check-cfg=cfg(sundials_use_openmp)");
     println!("cargo:rustc-cfg=sundials_version_major=\"{sundials_version_major}\"");
+    if use_openmp {
+        println!("cargo:rustc-cfg=sundials_use_openmp");
+    }
 
     // Third, we let Cargo know about the library files
 
