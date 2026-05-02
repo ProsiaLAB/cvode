@@ -8,7 +8,7 @@ use sundials_sys::{
     SUNPrecType_SUN_PREC_LEFT,
 };
 use sundials_sys::{
-    CVLsPrecSetupFn, CVLsPrecSolveFn, CVRhsFn, N_Vector, SUNContext, SUNLinearSolver,
+    CVEwtFn, CVLsPrecSetupFn, CVLsPrecSolveFn, CVRhsFn, N_Vector, SUNContext, SUNLinearSolver,
 };
 use sundials_sys::{
     CVode, CVodeCreate, CVodeFree, CVodeGetCurrentStep, CVodeGetCurrentTime, CVodeGetLastStep,
@@ -17,9 +17,10 @@ use sundials_sys::{
     CVodeSetLSetupFrequency, CVodeSetLinearSolver, CVodeSetMaxConvFails, CVodeSetMaxErrTestFails,
     CVodeSetMaxHnilWarns, CVodeSetMaxNonlinIters, CVodeSetMaxNumConstraintFails,
     CVodeSetMaxNumSteps, CVodeSetMaxOrd, CVodeSetMaxStep, CVodeSetMinStep, CVodeSetPreconditioner,
-    CVodeSetStabLimDet, CVodeSetUserData, N_VClone, N_VDestroy_Serial, N_VGetArrayPointer_Serial,
-    N_VNew_Serial, N_VScale, SUNContext_Create, SUNContext_Free, SUNLinSol_SPBCGS,
-    SUNLinSol_SPFGMR, SUNLinSol_SPGMR, SUNLinSol_SPTFQMR, SUNLinSolFree, fclose, fopen,
+    CVodeSetStabLimDet, CVodeSetUserData, CVodeWFtolerances, N_VClone, N_VDestroy_Serial,
+    N_VGetArrayPointer_Serial, N_VNew_Serial, N_VScale, SUNContext_Create, SUNContext_Free,
+    SUNLinSol_SPBCGS, SUNLinSol_SPFGMR, SUNLinSol_SPGMR, SUNLinSol_SPTFQMR, SUNLinSolFree, fclose,
+    fopen,
 };
 
 #[derive(Default)]
@@ -317,6 +318,11 @@ impl Cvode {
         unsafe {
             CVodeSetPreconditioner(self.ptr, setup, solve);
         }
+    }
+
+    #[inline(always)]
+    pub fn set_wf_tolerances(&self, efun: CVEwtFn) {
+        unsafe { CVodeWFtolerances(self.ptr, efun) };
     }
 
     #[inline(always)]
