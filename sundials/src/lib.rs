@@ -413,9 +413,9 @@ impl Cvode {
     /// Panics if the CVODE statistics cannot be printed, which can happen if there is an internal error in the CVODE library.
     /// Note that this function will overwrite the file ``cvode_stats.txt`` if it already exists.
     #[inline(always)]
-    pub fn save_statistics(&self) {
+    pub fn save_statistics(&self, fname: &str) {
         unsafe {
-            let filename = CString::new("cvode_stats.txt").unwrap();
+            let filename = CString::new(fname).unwrap();
             let mode = CString::new("w").unwrap();
 
             let file: *mut FILE = fopen(filename.as_ptr(), mode.as_ptr());
