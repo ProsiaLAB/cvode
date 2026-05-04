@@ -285,7 +285,7 @@ impl Cvode {
     /// Returns an error if the integration fails, which can happen for various reasons such as exceeding
     /// the maximum number of steps, convergence failures, or issues with the right-hand side function.
     #[inline(always)]
-    pub fn integrate(&self, tout: f64, y: &NVector, t: &mut f64) -> Result<(), CvodeError> {
+    pub fn integrate(&self, tout: f64, y: &mut NVector, t: &mut f64) -> Result<(), CvodeError> {
         let retval = unsafe { CVode(self.ptr, tout, y.as_raw(), t, CV_NORMAL) };
         CvodeError::from_raw(retval)
     }
