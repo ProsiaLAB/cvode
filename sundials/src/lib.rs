@@ -279,9 +279,15 @@ impl Cvode {
         unsafe { CVodeSetLinearSolver(self.ptr, linsol.as_raw(), std::ptr::null_mut()) };
     }
 
+    /// Integrate the ODE system up to time `tout`, storing the solution in `y` and the actual time reached in `t`.
+    ///
+    /// # Errors
+    /// Returns an error if the integration fails, which can happen for various reasons such as exceeding
+    /// the maximum number of steps, convergence failures, or issues with the right-hand side function.
     #[inline(always)]
-    pub fn integrate(&self, tout: f64, y: &NVector, t: &mut f64) -> i32 {
-        unsafe { CVode(self.ptr, tout, y.as_raw(), t, CV_NORMAL) }
+    pub fn integrate(&self, tout: f64, y: &NVector, t: &mut f64) -> Result<(), CvodeError> {
+        let retval = unsafe { CVode(self.ptr, tout, y.as_raw(), t, CV_NORMAL) };
+        CvodeError::from_raw(retval)
     }
 
     #[inline(always)]
@@ -434,5 +440,58 @@ impl Drop for Cvode {
     #[inline(always)]
     fn drop(&mut self) {
         unsafe { CVodeFree(&raw mut self.ptr) };
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CvodeError {
+    Warning,
+    TStopReturn,
+    RootReturn,
+    MemNull,
+    NoMalloc,
+    IllInput,
+    TooClose,
+    TooMuchWork,
+    TooMuchAccuracy,
+    ErrFailure,
+    ConvergenceFailure,
+    LinearInitFailure,
+    LinearSetupFailure,
+    LinearSolveFailure,
+    ConstraintsFailure,
+    RHSFuncFailure,
+    FirstRHSFuncFailure,
+    RepeatedRHSFuncFailure,
+    UnrecoverableRHSFuncFailure,
+    RootFindingFuncFailure,
+}
+
+impl CvodeError {
+    fn from_raw(code: i32) -> Result<(), Self> {
+        match code {
+            0 => Ok(()), // CV_SUCCESS
+            1 => Err(CvodeError::TStopReturn),
+            2 => Err(CvodeError::RootReturn),
+            99 => Err(CvodeError::Warning),
+            -1 => Err(CvodeError::TooMuchWork),
+            -2 => Err(CvodeError::TooMuchAccuracy),
+            -3 => Err(CvodeError::ErrFailure),
+            -4 => Err(CvodeError::ConvergenceFailure),
+            -5 => Err(CvodeError::LinearInitFailure),
+            -6 => Err(CvodeError::LinearSetupFailure),
+            -7 => Err(CvodeError::LinearSolveFailure),
+            -8 => Err(CvodeError::RHSFuncFailure),
+            -9 => Err(CvodeError::FirstRHSFuncFailure),
+            -10 => Err(CvodeError::RepeatedRHSFuncFailure),
+            -11 => Err(CvodeError::UnrecoverableRHSFuncFailure),
+            -12 => Err(CvodeError::RootFindingFuncFailure),
+            -15 => Err(CvodeError::ConstraintsFailure),
+            -21 => Err(CvodeError::MemNull),
+            -22 => Err(CvodeError::IllInput),
+            -23 => Err(CvodeError::NoMalloc),
+            -27 => Err(CvodeError::TooClose),
+            _ => panic!("Unknown CVODE return code: {code}"),
+        }
     }
 }
