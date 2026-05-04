@@ -9,7 +9,7 @@
                 "/usr/local/include/suitesparse"
             ],
             "defines": [],
-            "compilerPath": "/opt/homebrew/opt/llvm/bin/clang",
+            "compilerPath": "/usr/bin/clang",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-arm64"
         }
